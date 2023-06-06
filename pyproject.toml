@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["Andrey Korotkiy <Andreikorotkiy@gmail.com>"]
 readme = "README.md"
-packages = [{include = "b4u_serving"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
