@@ -1,0 +1,41 @@
+name: b4u serving service
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install poetry
+      run: |
+        pip install poetry
+    - name: Configure poetry
+      run: |
+        python -m poetry config virtualenvs.in-project true
+    - name: Install dependencies
+      run: |
+        python -m poetry install
+    - name: Run Black 
+      uses: psf/black@stable
+      with:
+        options: "--check --diff --verbose"
+        jupyter: true
+    - name: Run Pylint
+      run: |
+        poetry run pylint $(git ls-files '*.py')
+    - name: Run Mypy
+      run: poetry run mypy .
+    - name: Run tests
+      run: |
+        poetry run pytest tests/test* 
