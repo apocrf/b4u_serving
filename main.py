@@ -17,6 +17,16 @@ MLFLOW_S3_ENDPOINT_URL = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
 app = FastAPI()
 
 
+@app.get("/")
+async def root():
+    """_summary_
+
+    Returns:
+        _type_: _description_
+    """
+    return {"message": "Welcome to book recommendation system"}
+
+
 @app.get("/recommend")
 def recommend(input_books: list[str]) -> dict[str, str]:
     """Recommend endpoint
