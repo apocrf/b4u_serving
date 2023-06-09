@@ -1,7 +1,7 @@
 import os
-import boto3
+import boto3  # type: ignore
 import uvicorn
-import sklearn
+import sklearn  # type: ignore
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
@@ -18,7 +18,7 @@ app = FastAPI()
 
 
 @app.get("/recommend")
-def recommend(input_books: list[str]) -> list[str]:
+def recommend(input_books: list[str]) -> dict[str, str]:
     """Recommend endpoint
 
     Parameters
