@@ -1,7 +1,7 @@
 import os
+import tempfile
 import boto3  # type: ignore
 import uvicorn
-import tempfile
 import joblib
 import numpy as np
 
