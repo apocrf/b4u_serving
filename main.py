@@ -2,7 +2,7 @@ import os
 import tempfile
 import boto3  # type: ignore
 import uvicorn
-import joblib
+import joblib  # type: ignore
 import numpy as np
 
 from fastapi import FastAPI
