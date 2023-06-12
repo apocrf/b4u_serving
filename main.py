@@ -1,13 +1,16 @@
 import os
 import boto3  # type: ignore
 import uvicorn
-import sklearn  # type: ignore
+import tempfile
+import joblib
+import numpy as np
+
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
 
 load_dotenv()
-S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
+S3_BUCKET_NAME = os.environ.get("AWS_BUCKET_NAME")
 MODEL_KEY = os.environ.get("MODEL_KEY")
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_REGION = os.environ.get("AWS_REGION")
@@ -27,19 +30,14 @@ async def root():
     return {"message": "Welcome to book recommendation system"}
 
 
-@app.get("/recommend")
-def recommend(input_books: list[str]) -> dict[str, str]:
+@app.get("/v1/recommend")
+def recommend() -> str:
     """Recommend endpoint
-
-    Parameters
-    ----------
-    input_books : list[str]
-        books input
 
     Returns
     -------
-    list[str]
-        recommend books
+    str
+        book vector
     """
     s3 = boto3.client(
         "s3",
@@ -47,20 +45,24 @@ def recommend(input_books: list[str]) -> dict[str, str]:
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         region_name=AWS_REGION,
-        logged_model=MODEL_KEY,
     )
 
+    samples = np.ones(768)
+    samples = samples.reshape(1, -1)
+
     # Download the model from MinIO
-    obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=MODEL_KEY)
-    model_data = obj["Body"].read()
+    with tempfile.TemporaryFile() as f:
+        s3.download_fileobj(
+            Fileobj=f,
+            Bucket=S3_BUCKET_NAME,
+            Key=MODEL_KEY,
+        )
+        f.seek(0)
+        model = joblib.load(f)
 
-    # Load model
-    nn_loaded_model = sklearn.load_model(model_data)
-    nn_prediction = nn_loaded_model.kneighbors(input_books, n_neighbors=6)
-    nn_prediction = list(nn_prediction[1][0][1:])
-
-    return {"recommend": nn_prediction}
+    nn_prediction = model.kneighbors(samples, n_neighbors=6)
+    return str(nn_prediction)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
