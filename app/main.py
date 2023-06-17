@@ -16,6 +16,7 @@ AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_REGION = os.environ.get("AWS_REGION")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 MLFLOW_S3_ENDPOINT_URL = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
+DOCKER_MLFLOW_S3_ENDPOINT_URL = os.environ.get("DOCKER_MLFLOW_S3_ENDPOINT_URL")
 
 app = FastAPI()
 
@@ -41,7 +42,7 @@ def recommend() -> str:
     """
     s3 = boto3.client(
         "s3",
-        endpoint_url=MLFLOW_S3_ENDPOINT_URL,
+        endpoint_url=DOCKER_MLFLOW_S3_ENDPOINT_URL,
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         region_name=AWS_REGION,
