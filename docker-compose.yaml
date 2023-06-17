@@ -15,3 +15,10 @@ services:
             - "8080:80"
         depends_on:
             - redis
+    test:
+        build: .
+        volumes:
+            - $PWD:/app
+        depends_on:
+            - redis
+        entrypoint: "pytest -s"
