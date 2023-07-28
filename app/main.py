@@ -18,6 +18,25 @@ AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 MLFLOW_S3_ENDPOINT_URL = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
 DOCKER_MLFLOW_S3_ENDPOINT_URL = os.environ.get("DOCKER_MLFLOW_S3_ENDPOINT_URL")
 
+s3 = boto3.client(
+    "s3",
+    endpoint_url=DOCKER_MLFLOW_S3_ENDPOINT_URL,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION,
+)
+
+# Download the model from MinIO
+with tempfile.TemporaryFile() as f:
+    s3.download_fileobj(
+        Fileobj=f,
+        Bucket=S3_BUCKET_NAME,
+        Key=MODEL_KEY,
+    )
+    f.seek(0)
+    model = joblib.load(f)
+
+
 app = FastAPI()
 
 
@@ -40,26 +59,9 @@ def recommend() -> str:
     str
         book vector
     """
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=DOCKER_MLFLOW_S3_ENDPOINT_URL,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION,
-    )
 
     samples = np.ones(768)
     samples = samples.reshape(1, -1)
-
-    # Download the model from MinIO
-    with tempfile.TemporaryFile() as f:
-        s3.download_fileobj(
-            Fileobj=f,
-            Bucket=S3_BUCKET_NAME,
-            Key=MODEL_KEY,
-        )
-        f.seek(0)
-        model = joblib.load(f)
 
     nn_prediction = model.kneighbors(samples, n_neighbors=6)
     return str(nn_prediction)
