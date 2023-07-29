@@ -16,6 +16,9 @@ httpx = "^0.24.1"
 boto3 = "^1.26.150"
 python-dotenv = "^1.0.0"
 scikit-learn = "^1.2.2"
+redis = "^4.6.0"
+pandas = "^2.0.3"
+fastparquet = "^2023.7.0"
 
 
 [tool.poetry.group.dev.dependencies]

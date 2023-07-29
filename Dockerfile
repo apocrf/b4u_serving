@@ -12,3 +12,4 @@ RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-interaction --no-ansi
 
 COPY ./app .env /app/
+COPY ./utils /app/utils/
