@@ -1,15 +1,15 @@
 import os
 import tempfile
+import json
+from typing import Any, Literal
 import redis  # type: ignore
 import boto3  # type: ignore
 import joblib  # type: ignore
-from typing import Literal
 import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
 S3_BUCKET_NAME = os.environ.get("AWS_BUCKET_NAME")
-MODEL_KEY = os.environ.get("MODEL_KEY")
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_REGION = os.environ.get("AWS_REGION")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
@@ -20,24 +20,24 @@ DATA_KEY = os.environ.get("DATA_KEY")
 REDIS_HOST = os.environ.get("REDIS_HOST")
 REDIS_PORT = os.environ.get("REDIS_PORT")
 REDIS_DB = os.environ.get("REDIS_DB")
-REDIS_KEY = "vectorised_data"
+
 
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
 print(redis_client)
 
 
-def loader(load_type: Literal["model", "data"]):
+def loader(load_type: Literal["model", "data"], data_path: str) -> Any:
     """Universal s3 loader
 
     Parameters
     ----------
-    load_type : Literal[&quot;model&quot;, &quot;data&quot;]
+    load_type : Literal[model, data]
         model or data
 
     Returns
     -------
     Any
-        object from s3
+        data object from s3
     """
     s3 = boto3.client(
         "s3",
@@ -54,7 +54,7 @@ def loader(load_type: Literal["model", "data"]):
                 s3.download_fileobj(
                     Fileobj=f,
                     Bucket=S3_BUCKET_NAME,
-                    Key=MODEL_KEY,
+                    Key=data_path,
                 )
                 f.seek(0)
                 data = joblib.load(f)
@@ -63,7 +63,7 @@ def loader(load_type: Literal["model", "data"]):
                 s3.download_fileobj(
                     Fileobj=f,
                     Bucket=S3_DATA_BUCKET_NAME,
-                    Key=DATA_KEY,
+                    Key=data_path,
                 )
                 f.seek(0)
                 data = pd.read_parquet(f)
@@ -72,6 +72,29 @@ def loader(load_type: Literal["model", "data"]):
     return data
 
 
-def finder(id: int):
-    vector = redis_client.hget(REDIS_KEY, id)
+def data_s3_redis(redis_key: str, data_path: str):
+    """Store the dataframe in Redis Hashes
+
+    Parameters
+    ----------
+    redis_key : str
+        key
+    data_path : str
+        s3 data path
+    """
+    data = loader("data", data_path)
+    try:
+        for index, row in data.iterrows():
+            row_as_list = row.to_list()
+            row_as_json = json.dumps(row_as_list)
+            redis_client.hset(redis_key, index, row_as_json)
+    except ValueError:
+        print("s3->redis transer failed")
+
+
+def finder(
+    book_index: int,
+    redis_key: Literal["vectorised_data", "id_title_mapping_data", "full_id_mapping"],
+):
+    vector = redis_client.hget(redis_key, book_index)
     return vector.decode()

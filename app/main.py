@@ -1,12 +1,22 @@
-from typing import Any
-import uvicorn
-import ast
+import os
+from ast import literal_eval
 import numpy as np
-from utils import loader
+import uvicorn
+
 from fastapi import FastAPI
+from dotenv import load_dotenv
+from utils import loader
 
 
-model = loader.loader("model")
+load_dotenv()
+MODEL_KEY = os.environ.get("MODEL_KEY")
+
+model = loader.loader("model", MODEL_KEY)  # type: ignore
+
+# fill redis
+loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
+loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
+loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
 
 app = FastAPI()
 
@@ -18,7 +28,7 @@ async def root():
 
 
 @app.get("/v1/recommend")
-async def recommend(index: int) -> Any:
+async def recommend(index: int) -> str:
     """Recommend endpoint
 
     Returns
@@ -26,11 +36,20 @@ async def recommend(index: int) -> Any:
     str
         book vector
     """
-
-    vector = np.array(ast.literal_eval(loader.finder(index)), dtype=np.float16)
+    recommendation = []
+    vector = np.array(
+        literal_eval(loader.finder(index, "vectorised_data")), dtype=np.float16
+    )
 
     nn_prediction = model.kneighbors(vector.reshape(1, -1), n_neighbors=6)
-    return str(nn_prediction)
+    indices = nn_prediction[1]
+    indices = indices.flatten()
+    book_indices_list = indices[-5:].tolist()
+
+    for book_index in book_indices_list:
+        recommendation.append(loader.finder(book_index, "id_title_mapping_data"))
+    recommendation = [literal_eval(book)[0] for book in recommendation]
+    return str(recommendation)
 
 
 if __name__ == "__main__":
