@@ -6,6 +6,7 @@ import redis  # type: ignore
 import boto3  # type: ignore
 import joblib  # type: ignore
 import pandas as pd
+from urllib.parse import unquote
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -93,8 +94,18 @@ def data_s3_redis(redis_key: str, data_path: str):
 
 
 def finder(
-    book_index: int,
-    redis_key: Literal["vectorised_data", "id_title_mapping_data", "full_id_mapping"],
+    book_index: int | str,
+    redis_key: Literal[
+        "vectorised_data",
+        "id_title_mapping_data",
+        "full_id_mapping",
+        "title_id_mapping_data",
+    ],
 ):
-    vector = redis_client.hget(redis_key, book_index)
-    return vector.decode()
+    if isinstance(book_index, str):
+        vector = redis_client.hget(
+            redis_key, str(unquote(book_index).strip('"'))
+        ).decode()
+    else:
+        vector = redis_client.hget(redis_key, book_index).decode()
+    return vector
