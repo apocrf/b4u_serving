@@ -12,17 +12,6 @@ from utils import loader
 app = FastAPI()
 
 
-load_dotenv()
-MODEL_KEY = os.environ.get("MODEL_KEY")
-
-model = loader.loader("model", MODEL_KEY)  # type: ignore
-
-# fill redis
-loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
-loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
-loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
-
-
 class Book(BaseModel):
     author: str
     title: str
@@ -32,6 +21,17 @@ class Book(BaseModel):
 async def root():
     """Root test"""
     return {"message": "Welcome to book recommendation system"}
+
+
+load_dotenv()
+MODEL_KEY = os.environ.get("MODEL_KEY")
+
+model = loader.loader("model", MODEL_KEY)  # type: ignore
+
+# fill redis
+loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
+loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
+loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
 
 
 @app.get("/v1/recommend", response_model=list[Book])
