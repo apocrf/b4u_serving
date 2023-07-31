@@ -51,7 +51,7 @@ async def recommend(liked_book: str | int) -> list[Book]:
         index = liked_book
     except ValueError:
         index = loader.finder(book_index=liked_book, redis_key="title_id_mapping_data")
-        index = int(index[1:-1])
+        index = int(index[1:-1])  # type: ignore
 
     vector = np.array(
         literal_eval(loader.finder(index, "vectorised_data")), dtype=np.float16

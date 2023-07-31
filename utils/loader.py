@@ -2,11 +2,12 @@ import os
 import tempfile
 import json
 from typing import Any, Literal
+from urllib.parse import unquote
+
 import redis  # type: ignore
 import boto3  # type: ignore
 import joblib  # type: ignore
 import pandas as pd
-from urllib.parse import unquote
 from dotenv import load_dotenv
 
 load_dotenv()
