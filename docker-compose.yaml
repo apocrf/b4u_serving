@@ -6,12 +6,12 @@ services:
           - "16379:6379"
         volumes:
           - $PWD/data:/data
-        command: --dir /data --loadmodule /usr/lib/redis/modules/redistimeseries.so
+        command: --dir /data --loadmodule /usr/lib/redis/modules/rejson.so
     app:
         restart: always
         build: .
         ports:
-            - "8080:80"
+            - "8081:80"
         depends_on:
             - redis
     test:

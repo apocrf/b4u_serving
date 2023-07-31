@@ -1,38 +1,41 @@
 import os
-import tempfile
-import boto3  # type: ignore
-import uvicorn
-import joblib  # type: ignore
+from ast import literal_eval
 import numpy as np
 
+import uvicorn
+from pydantic import BaseModel  # pylint: disable=E0611
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
+from utils import loader
 
 load_dotenv()
-S3_BUCKET_NAME = os.environ.get("AWS_BUCKET_NAME")
 MODEL_KEY = os.environ.get("MODEL_KEY")
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
-AWS_REGION = os.environ.get("AWS_REGION")
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-MLFLOW_S3_ENDPOINT_URL = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
-DOCKER_MLFLOW_S3_ENDPOINT_URL = os.environ.get("DOCKER_MLFLOW_S3_ENDPOINT_URL")
+model = loader.loader("model", MODEL_KEY)  # type: ignore
+
+# fill redis
+loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
+loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
+loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
+loader.data_s3_redis("title_id_mapping_data", "title_id_mapping_data.parquet")
+
 
 app = FastAPI()
 
 
+class Book(BaseModel):
+    author: str
+    title: str
+
+
 @app.get("/")
 async def root():
-    """_summary_
-
-    Returns:
-        _type_: _description_
-    """
+    """Root test"""
     return {"message": "Welcome to book recommendation system"}
 
 
-@app.get("/v1/recommend")
-def recommend() -> str:
+@app.get("/v1/recommend", response_model=list[Book])
+async def recommend(liked_book: str | int) -> list[Book]:
     """Recommend endpoint
 
     Returns
@@ -40,29 +43,30 @@ def recommend() -> str:
     str
         book vector
     """
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=DOCKER_MLFLOW_S3_ENDPOINT_URL,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION,
+
+    books_list = []
+
+    try:
+        int(liked_book)
+        index = liked_book
+    except ValueError:
+        index = loader.finder(book_index=liked_book, redis_key="title_id_mapping_data")
+        index = int(index[1:-1])  # type: ignore
+
+    vector = np.array(
+        literal_eval(loader.finder(index, "vectorised_data")), dtype=np.float16
     )
 
-    samples = np.ones(768)
-    samples = samples.reshape(1, -1)
+    nn_prediction = model.kneighbors(vector.reshape(1, -1), n_neighbors=6)
+    indices = nn_prediction[1]
+    indices = indices.flatten()
+    book_indices_list = indices[-5:].tolist()
 
-    # Download the model from MinIO
-    with tempfile.TemporaryFile() as f:
-        s3.download_fileobj(
-            Fileobj=f,
-            Bucket=S3_BUCKET_NAME,
-            Key=MODEL_KEY,
-        )
-        f.seek(0)
-        model = joblib.load(f)
-
-    nn_prediction = model.kneighbors(samples, n_neighbors=6)
-    return str(nn_prediction)
+    for book_index in book_indices_list:
+        books_list.append(loader.finder(book_index, "full_id_mapping"))
+    books_t = {literal_eval(book)[0]: literal_eval(book)[1] for book in books_list}
+    books = [Book(author=author, title=title) for author, title in books_t.items()]
+    return books
 
 
 if __name__ == "__main__":
