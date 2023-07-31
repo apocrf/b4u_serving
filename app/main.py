@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 from utils import loader
 
+app = FastAPI()
+
 
 load_dotenv()
 MODEL_KEY = os.environ.get("MODEL_KEY")
@@ -19,8 +21,6 @@ model = loader.loader("model", MODEL_KEY)  # type: ignore
 loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
 loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
 loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
-
-app = FastAPI()
 
 
 class Book(BaseModel):
