@@ -1,10 +1,12 @@
 import os
 from ast import literal_eval
 import numpy as np
-import uvicorn
 
+import uvicorn
+from pydantic import BaseModel  # pylint: disable=E0611
 from fastapi import FastAPI
 from dotenv import load_dotenv
+
 from utils import loader
 
 
@@ -21,14 +23,19 @@ loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
 app = FastAPI()
 
 
+class Book(BaseModel):
+    author: str
+    title: str
+
+
 @app.get("/")
 async def root():
     """Root test"""
     return {"message": "Welcome to book recommendation system"}
 
 
-@app.get("/v1/recommend")
-async def recommend(index: int) -> str:
+@app.get("/v1/recommend", response_model=list[Book])
+async def recommend(index: int) -> list[Book]:
     """Recommend endpoint
 
     Returns
@@ -36,7 +43,7 @@ async def recommend(index: int) -> str:
     str
         book vector
     """
-    recommendation = []
+    books_list = []
     vector = np.array(
         literal_eval(loader.finder(index, "vectorised_data")), dtype=np.float16
     )
@@ -47,9 +54,10 @@ async def recommend(index: int) -> str:
     book_indices_list = indices[-5:].tolist()
 
     for book_index in book_indices_list:
-        recommendation.append(loader.finder(book_index, "id_title_mapping_data"))
-    recommendation = [literal_eval(book)[0] for book in recommendation]
-    return str(recommendation)
+        books_list.append(loader.finder(book_index, "full_id_mapping"))
+    books_t = {literal_eval(book)[0]: literal_eval(book)[1] for book in books_list}
+    books = [Book(author=author, title=title) for author, title in books_t.items()]
+    return books
 
 
 if __name__ == "__main__":
