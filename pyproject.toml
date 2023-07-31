@@ -19,6 +19,7 @@ scikit-learn = "^1.2.2"
 redis = "^4.6.0"
 pandas = "^2.0.3"
 fastparquet = "^2023.7.0"
+pandas-stubs = "^2.0.2.230605"
 
 
 [tool.poetry.group.dev.dependencies]
