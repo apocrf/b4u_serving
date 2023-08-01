@@ -89,14 +89,15 @@ async def recommend(tg_id: int, liked_book: str | int) -> Response:
     return response
 
 
-@app.post("/v1/mark")
-async def mark(request: Mark) -> str:
-    """Mark you last recommendation
+@app.post("/v1/rate")
+async def rate_rec(request: Mark) -> str:
+    """Rate you last recommendation
 
     Parameters
     ----------
     request : Mark
-        1 to 5 mark
+        tg_id: user Telegram id
+        mark: 1 to 5 mark
 
     Returns
     -------
