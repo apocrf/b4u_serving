@@ -1,23 +1,25 @@
 import os
 from ast import literal_eval
+from uuid import UUID, uuid4
+import json
 import numpy as np
 
 import uvicorn
-from pydantic import BaseModel  # pylint: disable=E0611
+from pydantic import BaseModel, Field  # pylint: disable=E0611
 from fastapi import FastAPI
 from dotenv import load_dotenv
-
 from utils import loader
+from db import store_recs
 
 load_dotenv()
 MODEL_KEY = os.environ.get("MODEL_KEY")
 model = loader.loader("model", MODEL_KEY)  # type: ignore
 
 # fill redis
-loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
-loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
-loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
-loader.data_s3_redis("title_id_mapping_data", "title_id_mapping_data.parquet")
+# loader.data_s3_redis("id_title_mapping_data", "id_title_mapping_data.parquet")
+# loader.data_s3_redis("full_id_mapping", "full_id_mapping.parquet")
+# loader.data_s3_redis("vectorised_data", "description_vectorized.parquet")
+# loader.data_s3_redis("title_id_mapping_data", "title_id_mapping_data.parquet")
 
 
 app = FastAPI()
@@ -28,20 +30,32 @@ class Book(BaseModel):
     title: str
 
 
+class Response(BaseModel):
+    tg_id: int
+    uid: str = Field(default_factory=lambda: str(uuid4()))
+    books: list[Book]
+
+
 @app.get("/")
 async def root():
     """Root test"""
     return {"message": "Welcome to book recommendation system"}
 
 
-@app.get("/v1/recommend", response_model=list[Book])
-async def recommend(liked_book: str | int) -> list[Book]:
+@app.get("/v1/recommend", response_model=Response)
+async def recommend(tg_id: int, liked_book: str | int) -> Response:
     """Recommend endpoint
+
+    Parameters
+    ----------
+    tg_id : int
+        Telegram id
+    liked_book : str | int
+        Recommendation base book title
 
     Returns
     -------
-    str
-        book vector
+    Response
     """
 
     books_list = []
@@ -66,7 +80,20 @@ async def recommend(liked_book: str | int) -> list[Book]:
         books_list.append(loader.finder(book_index, "full_id_mapping"))
     books_t = {literal_eval(book)[0]: literal_eval(book)[1] for book in books_list}
     books = [Book(author=author, title=title) for author, title in books_t.items()]
-    return books
+    response = Response(tg_id=tg_id, books=books)
+
+    response_data = json.loads(response.json())
+    print(response_data)
+
+    store_recs.db_interaction(
+        db=store_recs.SessionLocal(),
+        tg_id=response_data["tg_id"],
+        liked_book=str(liked_book),
+        books=response_data["books"][0],
+        uid=response_data["uid"],
+    )
+
+    return response
 
 
 if __name__ == "__main__":
