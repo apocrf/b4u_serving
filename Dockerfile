@@ -13,3 +13,4 @@ RUN poetry config virtualenvs.create false \
 
 COPY ./app .env /app/
 COPY ./utils /app/utils/
+COPY ./db /app/db/
