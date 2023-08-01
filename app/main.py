@@ -1,12 +1,13 @@
 import os
 from ast import literal_eval
+from typing import Literal
+from uuid import uuid4
 import numpy as np
 
 import uvicorn
-from pydantic import BaseModel  # pylint: disable=E0611
+from pydantic import BaseModel, Field  # pylint: disable=E0611
 from fastapi import FastAPI
 from dotenv import load_dotenv
-
 from utils import loader
 
 load_dotenv()
@@ -28,20 +29,37 @@ class Book(BaseModel):
     title: str
 
 
+class Response(BaseModel):
+    tg_id: int
+    uid: str = Field(default_factory=lambda: str(uuid4()))
+    books: list[Book]
+
+
+class Mark(BaseModel):
+    tg_id: int
+    last_reccomend_mark: Literal[1, 2, 3, 4, 5]
+
+
 @app.get("/")
 async def root():
     """Root test"""
     return {"message": "Welcome to book recommendation system"}
 
 
-@app.get("/v1/recommend", response_model=list[Book])
-async def recommend(liked_book: str | int) -> list[Book]:
+@app.get("/v1/recommend", response_model=Response)
+async def recommend(tg_id: int, liked_book: str | int) -> Response:
     """Recommend endpoint
+
+    Parameters
+    ----------
+    tg_id : int
+        Telegram id
+    liked_book : str | int
+        Recommendation base book title
 
     Returns
     -------
-    str
-        book vector
+    Response
     """
 
     books_list = []
@@ -66,7 +84,30 @@ async def recommend(liked_book: str | int) -> list[Book]:
         books_list.append(loader.finder(book_index, "full_id_mapping"))
     books_t = {literal_eval(book)[0]: literal_eval(book)[1] for book in books_list}
     books = [Book(author=author, title=title) for author, title in books_t.items()]
-    return books
+    response = Response(tg_id=tg_id, books=books)
+
+    return response
+
+
+@app.post("/v1/rate")
+async def rate_rec(request: Mark) -> str:
+    """Rate you last recommendation
+
+    Parameters
+    ----------
+    request : Mark
+        tg_id: user Telegram id
+        mark: 1 to 5 mark
+
+    Returns
+    -------
+    str
+        Return message
+    """
+    # tg_id = request.tg_id
+    # mark = request.last_reccomend_mark
+
+    return "Thank you for your feedback!"
 
 
 if __name__ == "__main__":
